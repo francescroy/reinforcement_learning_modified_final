@@ -28,6 +28,13 @@ TOTAL_ROUND_COUNTER = 0
 CPU_TYPE_1 = 1
 CPU_TYPE_2 = 5
 MAX_JBS = 3
+x = None
+y = None
+line1 = None
+line2 = None
+line3 = None
+fig = None
+axs = None
 
 class User:
     def __init__(self,type_user,duration,id_conf,id):
@@ -164,22 +171,47 @@ horari[17] = [3,5,6,7,300,450,200]
 horari[40] = [3,5,6,7,300,450,200]
 # Enregistrar aquestes dades de Jitsi realment...
 
-def draw_plot(x,y,jitsi,jvb_num,line1,line2,line3,axs,fig):
 
-    x.append(TOTAL_ROUND_COUNTER)
-    y.append(jitsi.video_bridges[jvb_num].cpu_load)
 
-    plt.plot(x[len(x) - 60:len(x)], y[len(y) - 60:len(y)])
 
-    plt.ylim([0, 100])
+def draw_plot(jitsi,jvb_num):
+    global x
+    global y
 
-    plt.grid()
+    x = np.append(x,TOTAL_ROUND_COUNTER)
+    y = np.append(y,jitsi.video_bridges[jvb_num].cpu_load)
 
-    plt.draw()
-    plt.pause(0.5)
-    plt.clf()
+    # x.size = 61
 
-def advance_rounds(jitsi,rounds,x,y,line1,line2,line3,axs,fig):
+    ini = x.size - 60
+    end = x.size
+
+    # updating the value of x and y
+    line1.set_xdata(x[ini:end:1])
+    line1.set_ydata(y[ini:end:1])
+
+    line2.set_xdata(x[ini:end:1])
+    line2.set_ydata(y[ini:end:1])
+
+    line3.set_xdata(x[ini:end:1])
+    line3.set_ydata(y[ini:end:1])
+
+    # re-drawing the figure
+    fig.canvas.draw()
+
+    axs[0].set_xlim([x[ini], x[end-1]])
+    axs[1].set_xlim([x[ini], x[end-1]])
+    axs[2].set_xlim([x[ini], x[end-1]])
+
+    axs[0].set_ylim([0, 100])
+    axs[1].set_ylim([0, 100])
+    axs[2].set_ylim([0, 100])
+
+    # to flush the GUI events
+    fig.canvas.flush_events()
+    #time.sleep(0.1)
+
+def advance_rounds(jitsi,rounds):
     global ROUND_COUNTER
     global TOTAL_ROUND_COUNTER
 
@@ -194,7 +226,7 @@ def advance_rounds(jitsi,rounds,x,y,line1,line2,line3,axs,fig):
 
         # Start of next round:
         new_users(jitsi)
-        draw_plot(x, y, jitsi,0,line1,line2,line3,axs,fig)
+        draw_plot(jitsi,0)
 
 def new_users(jitsi):
     # Read the file...
@@ -243,39 +275,7 @@ if __name__ == '__main__':
         ax.label_outer()
 
 
-    # looping
-    for i in range(5000):
 
-        #print(x[i:60+i:1])
-        #print(y[i:60+i:1])
-
-        # updating the value of x and y
-        line1.set_xdata(x[i:60+i:1])
-        line1.set_ydata(y[i:60+i:1])
-
-        line2.set_xdata(x[i:60+i:1])
-        line2.set_ydata(y[i:60+i:1])
-
-        line3.set_xdata(x[i:60+i:1])
-        line3.set_ydata(y[i:60+i:1])
-
-        # re-drawing the figure
-        fig.canvas.draw()
-
-        axs[0].set_xlim([x[i], x[i+59]])
-        axs[1].set_xlim([x[i], x[i+59]])
-        axs[2].set_xlim([x[i], x[i+59]])
-
-        axs[0].set_ylim([0, 10])
-        axs[1].set_ylim([0, 10])
-        axs[2].set_ylim([0, 10])
-
-        # to flush the GUI events
-        fig.canvas.flush_events()
-        time.sleep(1)
-
-        x = np.append(x,i)
-        y = np.append(y,randint(2,7))
 
 
 
@@ -285,10 +285,10 @@ if __name__ == '__main__':
     #print(jitsi.get_state())
 
     new_users(jitsi) # Important for the 0 round for the first time.
-    draw_plot(x, y, jitsi,0,line1,line2,line3,axs,fig)
+    draw_plot(jitsi,0)
 
     for i in range(1000000):
-        advance_rounds(jitsi, 10,x,y,line1,line2,line3,axs,fig)
+        advance_rounds(jitsi, 10)
         # print(jitsi.get_state())
         # actions... like jitsi.start_jvb() or jitsi.stop_jvb()
 
