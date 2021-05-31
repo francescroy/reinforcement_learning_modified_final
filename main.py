@@ -28,6 +28,7 @@ TOTAL_ROUND_COUNTER = 0
 CPU_TYPE_1 = 1
 CPU_TYPE_2 = 5
 MAX_JBS = 3
+
 x = None
 y = None
 line1 = None
@@ -35,6 +36,9 @@ line2 = None
 line3 = None
 fig = None
 axs = None
+
+CYCLE_IN_SECONDS=120 # default 3600 (1 hour)
+PRINT_SCOPE=120 # default 60 (1 minute)
 
 class User:
     def __init__(self,type_user,duration,id_conf,id):
@@ -165,7 +169,7 @@ class Jitsi:
 
 # podria tenir una funcio de generar patro distorsionat per normal (a partir de patro fixe) que cridaria a advance_rounds() dins del if...
 
-horari = [None] * 3600
+horari = [None] * CYCLE_IN_SECONDS
 horari[10] = [3,5,6,7,300,450,200] # (num de conf, num de users, num de duracio)
 horari[17] = [3,5,6,7,300,450,200]
 horari[40] = [3,5,6,7,300,450,200]
@@ -181,9 +185,7 @@ def draw_plot(jitsi,jvb_num):
     x = np.append(x,TOTAL_ROUND_COUNTER)
     y = np.append(y,jitsi.video_bridges[jvb_num].cpu_load)
 
-    # x.size = 61
-
-    ini = x.size - 60
+    ini = x.size - PRINT_SCOPE
     end = x.size
 
     # updating the value of x and y
@@ -209,7 +211,7 @@ def draw_plot(jitsi,jvb_num):
 
     # to flush the GUI events
     fig.canvas.flush_events()
-    #time.sleep(0.1)
+    time.sleep(0.1)
 
 def advance_rounds(jitsi,rounds):
     global ROUND_COUNTER
@@ -221,7 +223,7 @@ def advance_rounds(jitsi,rounds):
 
         TOTAL_ROUND_COUNTER = TOTAL_ROUND_COUNTER + 1
         ROUND_COUNTER = ROUND_COUNTER + 1
-        if ROUND_COUNTER == 3600:
+        if ROUND_COUNTER == CYCLE_IN_SECONDS:
             ROUND_COUNTER=0
 
         # Start of next round:
@@ -245,6 +247,14 @@ def new_users(jitsi):
         jitsi.add_user(User(2,10,2,15))
 
 
+    if ROUND_COUNTER == 60:
+
+        for i in range(75):
+            jitsi.add_user(User(1, 10, 3, i))
+
+        jitsi.add_user(User(2, 10, 3, 15))
+
+
 
 
 
@@ -253,8 +263,8 @@ if __name__ == '__main__':
 
     # genrating random data values
 
-    x = np.array(list(range(-60, 0)))
-    y = np.array([0] * 60) # Last minute without action
+    x = np.array(list(range(-PRINT_SCOPE, 0)))
+    y = np.array([0] * PRINT_SCOPE) # Last minute without action
 
     # enable interactive mode
     plt.ion()
@@ -302,6 +312,9 @@ if __name__ == '__main__':
 
     # Vale pero la foto del sistema la vull fer cada 10 segons... FOTO + ACCIO (*QUE SUPOSARE QUE TE IMPACTE IMMEDIAT*)
     # a next_state = current_state.next_state(action, states) hauré d'avançar 20 iteracions...
+
+    # Seguent pas, fer que es mostrin els tres JVB loads...
+    # Seguent pas, fer un autoscaler threshold based?
 
     # Constuir policy seguent pas
     # Computar cost de un estat
