@@ -6,7 +6,10 @@
 import numpy as np
 from random import *
 import math
+import time
 import sys
+import matplotlib.pyplot as plt
+
 
 X_SIZE =7 # 5,7,9
 Y_SIZE =7 # 5,7,9
@@ -16,6 +19,306 @@ OPTIMAL_X, OPTIMAL_Y = 3,3 # 2,3,4
 OPTIMAL_FINAL_STATE = False # Can be false if using TD-learning or DP methods but must be true if some MonteCarlo method...
 COST_STEP = 0.10
 NUM_ACTIONS = 5
+
+
+
+
+ROUND_COUNTER = 0
+TOTAL_ROUND_COUNTER = 0
+CPU_TYPE_1 = 1
+CPU_TYPE_2 = 5
+MAX_JBS = 3
+
+class User:
+    def __init__(self,type_user,duration,id_conf,id):
+        self.id = id
+        self.id_conf = id_conf
+        self.type = type_user # 1 o 2, els 1's fan augmentar la cpu un 1% i els 2 un 5%
+        self.duration = duration # same for all participants of same conference, in seconds
+
+class JVB:
+    def __init__(self):
+        self.users_connected = []
+        self.cpu_load = None
+        self.up = False
+
+    def start(self):
+        self.cpu_load = 0
+        self.up = True
+
+    def close(self):
+        self.users_connected = []
+        self.cpu_load = None
+        self.up = False
+
+    def is_up(self):
+        return self.up
+
+    def add_user(self,user):
+        self.users_connected.append(user)
+        if user.type == 1:
+            self.cpu_load = self.cpu_load + CPU_TYPE_1
+        else:
+            self.cpu_load = self.cpu_load + CPU_TYPE_2
+
+    def advance_round(self):
+        for user in reversed(self.users_connected):
+            user.duration = user.duration - 1
+            if user.duration == 0:
+                self.users_connected.remove(user)
+                if user.type==1:
+                    self.cpu_load = self.cpu_load - CPU_TYPE_1
+                else:
+                    self.cpu_load = self.cpu_load - CPU_TYPE_2
+
+class Jitsi:
+    def __init__(self):
+        self.video_bridges = []
+        for i in range(MAX_JBS):
+            self.video_bridges.append(JVB())
+
+        self.video_bridges[0].start() # always 1 up...
+        self.video_bridges_up = 1
+
+    def get_some_jvb_down(self):
+
+        jvb_down = None
+
+        for jvb in self.video_bridges:
+            if not jvb.is_up():
+                jvb_down = jvb
+                break
+
+        return jvb_down
+
+    def start_jvb(self):
+
+        if self.video_bridges_up < MAX_JBS:
+            self.get_some_jvb_down().start()
+            self.video_bridges_up += 1
+
+    def get_least_loaded_jvb(self):
+
+        jvb_selected = None
+        cpu_min = 1000
+
+        for jvb in self.video_bridges:
+
+            if jvb.is_up():
+
+                if jvb.cpu_load < cpu_min:
+                    cpu_min = jvb.cpu_load
+                    jvb_selected = jvb
+
+        return jvb_selected
+
+    def add_user(self,user):
+        jvb_selected = self.get_least_loaded_jvb()
+        jvb_selected.add_user(user)
+
+    def stop_jvb(self):
+        # No imagino cap cas on tingui sentit apagar algun jvb que no sigui el que esta menys carregat... així que de moment...
+
+        if self.video_bridges_up > 1:
+
+            jvb_selected = self.get_least_loaded_jvb()
+            users_to_reallocate = jvb_selected.users_connected
+            jvb_selected.close()
+
+            for user in users_to_reallocate:
+                self.add_user(user)
+
+            self.video_bridges_up -= 1
+
+    def advance_round(self):
+        for jvb in self.video_bridges:
+            if jvb.is_up():
+                jvb.advance_round()
+
+    def get_users_connected(self):
+
+        num_users=0
+        for jvb in self.video_bridges:
+            num_users= num_users + len(jvb.users_connected)
+
+        return num_users
+
+    def get_state(self):
+
+        state = [self.video_bridges_up,self.get_users_connected()]
+
+        for jvb in self.video_bridges:
+            state.append(jvb.cpu_load)
+
+        state.append(ROUND_COUNTER) # SI NO?
+
+        return state
+
+# File.txt + funcio normal centrada a 0 de: numero conf., numero users, numero duracio, inclus de la round de la connexio?
+
+# podria tenir una funcio de generar patro distorsionat per normal (a partir de patro fixe) que cridaria a advance_rounds() dins del if...
+
+horari = [None] * 3600
+horari[10] = [3,5,6,7,300,450,200] # (num de conf, num de users, num de duracio)
+horari[17] = [3,5,6,7,300,450,200]
+horari[40] = [3,5,6,7,300,450,200]
+# Enregistrar aquestes dades de Jitsi realment...
+
+def draw_plot(x,y,jitsi,jvb_num,line1,line2,line3,axs,fig):
+
+    x.append(TOTAL_ROUND_COUNTER)
+    y.append(jitsi.video_bridges[jvb_num].cpu_load)
+
+    plt.plot(x[len(x) - 60:len(x)], y[len(y) - 60:len(y)])
+
+    plt.ylim([0, 100])
+
+    plt.grid()
+
+    plt.draw()
+    plt.pause(0.5)
+    plt.clf()
+
+def advance_rounds(jitsi,rounds,x,y,line1,line2,line3,axs,fig):
+    global ROUND_COUNTER
+    global TOTAL_ROUND_COUNTER
+
+    for i in range(rounds):
+
+        jitsi.advance_round()
+
+        TOTAL_ROUND_COUNTER = TOTAL_ROUND_COUNTER + 1
+        ROUND_COUNTER = ROUND_COUNTER + 1
+        if ROUND_COUNTER == 3600:
+            ROUND_COUNTER=0
+
+        # Start of next round:
+        new_users(jitsi)
+        draw_plot(x, y, jitsi,0,line1,line2,line3,axs,fig)
+
+def new_users(jitsi):
+    # Read the file...
+    if ROUND_COUNTER==5:
+
+        for i in range(15):
+            jitsi.add_user(User(1,10,1,i))
+
+        jitsi.add_user(User(2,10,1,15))
+
+    if ROUND_COUNTER==10:
+
+        for i in range(15):
+            jitsi.add_user(User(1,10,2,i))
+
+        jitsi.add_user(User(2,10,2,15))
+
+
+
+
+
+if __name__ == '__main__':
+
+
+    # genrating random data values
+
+    x = np.array(list(range(-60, 0)))
+    y = np.array([0] * 60) # Last minute without action
+
+    # enable interactive mode
+    plt.ion()
+                          ########### ##############33 33333333333#############
+    fig, axs = plt.subplots(3, 1)
+    line1, = axs[0].plot(x, y)
+    axs[0].set_title('JVB 1')
+    line2, = axs[1].plot(x, y, 'tab:orange')
+    axs[1].set_title('JVB 2')
+    line3, = axs[2].plot(x, y, 'tab:green')
+    axs[2].set_title('JVB 3')
+
+    for ax in axs.flat:
+        ax.set(xlabel='ROUND', ylabel='CPU load')
+
+    # Hide x labels and tick labels for top plots and y ticks for right plots.
+    for ax in axs.flat:
+        ax.label_outer()
+
+
+    # looping
+    for i in range(5000):
+
+        #print(x[i:60+i:1])
+        #print(y[i:60+i:1])
+
+        # updating the value of x and y
+        line1.set_xdata(x[i:60+i:1])
+        line1.set_ydata(y[i:60+i:1])
+
+        line2.set_xdata(x[i:60+i:1])
+        line2.set_ydata(y[i:60+i:1])
+
+        line3.set_xdata(x[i:60+i:1])
+        line3.set_ydata(y[i:60+i:1])
+
+        # re-drawing the figure
+        fig.canvas.draw()
+
+        axs[0].set_xlim([x[i], x[i+59]])
+        axs[1].set_xlim([x[i], x[i+59]])
+        axs[2].set_xlim([x[i], x[i+59]])
+
+        axs[0].set_ylim([0, 10])
+        axs[1].set_ylim([0, 10])
+        axs[2].set_ylim([0, 10])
+
+        # to flush the GUI events
+        fig.canvas.flush_events()
+        time.sleep(1)
+
+        x = np.append(x,i)
+        y = np.append(y,randint(2,7))
+
+
+
+
+    jitsi = Jitsi()
+
+    #print(jitsi.get_state())
+
+    new_users(jitsi) # Important for the 0 round for the first time.
+    draw_plot(x, y, jitsi,0,line1,line2,line3,axs,fig)
+
+    for i in range(1000000):
+        advance_rounds(jitsi, 10,x,y,line1,line2,line3,axs,fig)
+        # print(jitsi.get_state())
+        # actions... like jitsi.start_jvb() or jitsi.stop_jvb()
+
+    print(TOTAL_ROUND_COUNTER)
+    print(ROUND_COUNTER)
+    #print(jitsi.get_least_loaded_jvb().users_connected[0].duration)
+    #print(jitsi.get_least_loaded_jvb().cpu_load)
+
+
+
+
+    # Vale pero la foto del sistema la vull fer cada 10 segons... FOTO + ACCIO (*QUE SUPOSARE QUE TE IMPACTE IMMEDIAT*)
+    # a next_state = current_state.next_state(action, states) hauré d'avançar 20 iteracions...
+
+    # Constuir policy seguent pas
+    # Computar cost de un estat
+    # Computar reward...
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class ChanceNode:
@@ -225,7 +528,7 @@ def get_random_policy(states):
                     policy.append('E')
                 if rand_dir==4:
                     policy.append('·')
-                
+
 
 
 
@@ -426,5 +729,5 @@ def main():
     # It would be nice to undestand why DP policy evaluation algo. works... is because you are using bootstrapping...
     # It's much easier to understand MC policy evaluation algo. works... it relies on sampling, not on bootstrapping...
 
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+    #main()
