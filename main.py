@@ -31,14 +31,20 @@ MAX_JBS = 3
 
 x = None
 y = None
+y2 = None
+y3 = None
+
 line1 = None
 line2 = None
 line3 = None
+
 fig = None
 axs = None
 
-CYCLE_IN_SECONDS=120 # default 3600 (1 hour)
-PRINT_SCOPE=120 # default 60 (1 minute)
+CYCLE_IN_SECONDS = 86400 # default 3600 (1 hour) or 86400 (1 day)
+PRINT_SCOPE = 300 # default 300 (5 minutes)
+
+DRAW_PLOT= True
 
 class User:
     def __init__(self,type_user,duration,id_conf,id):
@@ -178,40 +184,57 @@ horari[40] = [3,5,6,7,300,450,200]
 
 
 
-def draw_plot(jitsi,jvb_num):
+def draw_plot(jitsi):
     global x
     global y
+    global y2
+    global y3
+
+    cpu_1 = jitsi.video_bridges[0].cpu_load
+    cpu_2 = jitsi.video_bridges[1].cpu_load
+    cpu_3 = jitsi.video_bridges[2].cpu_load
+
+    if cpu_1==None:
+        cpu_1 = 0
+    if cpu_2==None:
+        cpu_2 = 0
+    if cpu_3==None:
+        cpu_3 = 0
 
     x = np.append(x,TOTAL_ROUND_COUNTER)
-    y = np.append(y,jitsi.video_bridges[jvb_num].cpu_load)
+    y = np.append(y,cpu_1)
+    y2 = np.append(y2,cpu_2)
+    y3 = np.append(y3,cpu_3)
 
-    ini = x.size - PRINT_SCOPE
-    end = x.size
+    if DRAW_PLOT == True:
 
-    # updating the value of x and y
-    line1.set_xdata(x[ini:end:1])
-    line1.set_ydata(y[ini:end:1])
+        ini = x.size - PRINT_SCOPE
+        end = x.size
 
-    line2.set_xdata(x[ini:end:1])
-    line2.set_ydata(y[ini:end:1])
+        # updating the value of x and y
+        line1.set_xdata(x[ini:end:1])
+        line1.set_ydata(y[ini:end:1])
 
-    line3.set_xdata(x[ini:end:1])
-    line3.set_ydata(y[ini:end:1])
+        line2.set_xdata(x[ini:end:1])
+        line2.set_ydata(y2[ini:end:1])
 
-    # re-drawing the figure
-    fig.canvas.draw()
+        line3.set_xdata(x[ini:end:1])
+        line3.set_ydata(y3[ini:end:1])
 
-    axs[0].set_xlim([x[ini], x[end-1]])
-    axs[1].set_xlim([x[ini], x[end-1]])
-    axs[2].set_xlim([x[ini], x[end-1]])
+        # re-drawing the figure
+        fig.canvas.draw()
 
-    axs[0].set_ylim([0, 100])
-    axs[1].set_ylim([0, 100])
-    axs[2].set_ylim([0, 100])
+        axs[0].set_xlim([x[ini], x[end-1]])
+        axs[1].set_xlim([x[ini], x[end-1]])
+        axs[2].set_xlim([x[ini], x[end-1]])
 
-    # to flush the GUI events
-    fig.canvas.flush_events()
-    time.sleep(0.1)
+        axs[0].set_ylim([0, 150])
+        axs[1].set_ylim([0, 150])
+        axs[2].set_ylim([0, 150])
+
+        # to flush the GUI events
+        fig.canvas.flush_events()
+        #time.sleep(0.5)
 
 def advance_rounds(jitsi,rounds):
     global ROUND_COUNTER
@@ -225,34 +248,31 @@ def advance_rounds(jitsi,rounds):
         ROUND_COUNTER = ROUND_COUNTER + 1
         if ROUND_COUNTER == CYCLE_IN_SECONDS:
             ROUND_COUNTER=0
+            print("Cycle finished")
 
         # Start of next round:
         new_users(jitsi)
-        draw_plot(jitsi,0)
+        draw_plot(jitsi)
 
 def new_users(jitsi):
     # Read the file...
-    if ROUND_COUNTER==5:
+    if ROUND_COUNTER==60:
 
         for i in range(15):
-            jitsi.add_user(User(1,10,1,i))
+            jitsi.add_user(User(1,120,1,i))
 
-        jitsi.add_user(User(2,10,1,15))
+        jitsi.add_user(User(2,120,1,15))
 
-    if ROUND_COUNTER==10:
+    if ROUND_COUNTER==80:
 
         for i in range(15):
-            jitsi.add_user(User(1,10,2,i))
+            jitsi.add_user(User(1,120,2,i))
 
-        jitsi.add_user(User(2,10,2,15))
+        jitsi.add_user(User(2,120,2,15))
 
 
-    if ROUND_COUNTER == 60:
 
-        for i in range(75):
-            jitsi.add_user(User(1, 10, 3, i))
 
-        jitsi.add_user(User(2, 10, 3, 15))
 
 
 
@@ -265,16 +285,18 @@ if __name__ == '__main__':
 
     x = np.array(list(range(-PRINT_SCOPE, 0)))
     y = np.array([0] * PRINT_SCOPE) # Last minute without action
+    y2 = np.array([0] * PRINT_SCOPE) # Last minute without action
+    y3 = np.array([0] * PRINT_SCOPE) # Last minute without action
 
     # enable interactive mode
     plt.ion()
-                          ########### ##############33 33333333333#############
+
     fig, axs = plt.subplots(3, 1)
     line1, = axs[0].plot(x, y)
     axs[0].set_title('JVB 1')
-    line2, = axs[1].plot(x, y, 'tab:orange')
+    line2, = axs[1].plot(x, y2, 'tab:orange')
     axs[1].set_title('JVB 2')
-    line3, = axs[2].plot(x, y, 'tab:green')
+    line3, = axs[2].plot(x, y3, 'tab:green')
     axs[2].set_title('JVB 3')
 
     for ax in axs.flat:
@@ -292,23 +314,25 @@ if __name__ == '__main__':
 
     jitsi = Jitsi()
 
-    #print(jitsi.get_state())
-
     new_users(jitsi) # Important for the 0 round for the first time.
-    draw_plot(jitsi,0)
+    draw_plot(jitsi)
+    # print(jitsi.get_state())
 
-    for i in range(1000000):
+    for i in range(1000000): # INFINITELY...
+
         advance_rounds(jitsi, 10)
         # print(jitsi.get_state())
-        # actions... like jitsi.start_jvb() or jitsi.stop_jvb()
 
-    print(TOTAL_ROUND_COUNTER)
-    print(ROUND_COUNTER)
-    #print(jitsi.get_least_loaded_jvb().users_connected[0].duration)
-    #print(jitsi.get_least_loaded_jvb().cpu_load)
-
+        if TOTAL_ROUND_COUNTER== 70:
+            jitsi.start_jvb()
+        if TOTAL_ROUND_COUNTER== 90:
+            jitsi.stop_jvb()
 
 
+
+
+    # print(jitsi.get_least_loaded_jvb().users_connected[0].duration)
+    # print(jitsi.get_least_loaded_jvb().cpu_load)
 
     # Vale pero la foto del sistema la vull fer cada 10 segons... FOTO + ACCIO (*QUE SUPOSARE QUE TE IMPACTE IMMEDIAT*)
     # a next_state = current_state.next_state(action, states) hauré d'avançar 20 iteracions...
