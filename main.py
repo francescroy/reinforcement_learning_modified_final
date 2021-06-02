@@ -41,7 +41,7 @@ line3 = None
 fig = None
 axs = None
 
-CYCLE_IN_SECONDS = 86400 # default 3600 (1 hour) or 86400 (1 day)
+CYCLE_IN_SECONDS = 3600 # default 3600 (1 hour) or 86400 (1 day)
 PRINT_SCOPE = 300 # default 300 (5 minutes)
 
 DRAW_PLOT= True
